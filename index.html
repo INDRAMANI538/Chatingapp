@@ -4,33 +4,107 @@
     <title>Chat App</title>
     <style>
       /* Add some basic styling */
-      body { font: 14px sans-serif; }
-      ul { list-style-type: none; padding: 0; }
-      li { padding: 8px; margin-bottom: 4px; background: #ddd; }
-      input { padding: 10px; width: 80%; }
-      button { padding: 10px; }
+      body {
+        font-family: 'Arial', sans-serif;
+        background-color: #f4f4f4;
+        margin: 0;
+        padding: 20px;
+      }
+      #chat-container {
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+        background: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      }
+      #messages {
+        list-style-type: none;
+        padding: 0;
+        height: 300px;
+        overflow-y: scroll;
+        margin-bottom: 20px;
+        border: 1px solid #ddd;
+        padding: 10px;
+      }
+      #messages li {
+        padding: 10px;
+        margin-bottom: 10px;
+        background: #eee;
+        border-radius: 5px;
+      }
+      input[type="text"], input[type="button"] {
+        padding: 10px;
+        margin: 5px 0;
+        width: calc(100% - 22px);
+      }
+      #usernameInput {
+        width: 60%;
+      }
+      #submitName {
+        width: 38%;
+        background-color: grey;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
+      #messageInput {
+        width: 80%;
+      }
+      #sendMessage {
+        width: 18%;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
-    <ul id="messages"></ul>
-    <input id="messageInput" autocomplete="off" /><button onclick="sendMessage()">Send</button>
+    <div id="chat-container">
+      <h2>Chat App</h2>
+      <div id="user-info">
+        <input id="usernameInput" type="text" placeholder="Enter your name" autocomplete="off" />
+        <input id="submitName" type="button" value="Join Chat" onclick="submitName()" />
+      </div>
+      <ul id="messages"></ul>
+      <input id="messageInput" type="text" placeholder="Type a message..." autocomplete="off" disabled />
+      <input id="sendMessage" type="button" value="Send" onclick="sendMessage()" disabled />
+    </div>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
       var socket = io();
+      var username = '';
 
-      // When a message is received
+      // Enable message input after submitting name
+      function submitName() {
+        username = document.getElementById('usernameInput').value.trim();
+        if (username !== '') {
+          document.getElementById('messageInput').disabled = false;
+          document.getElementById('sendMessage').disabled = false;
+          document.getElementById('usernameInput').disabled = true;
+          document.getElementById('submitName').disabled = true;
+        }
+      }
+
+      // Receive and display messages
       socket.on('chat message', function (msg) {
         var li = document.createElement('li');
         li.textContent = msg;
         document.getElementById('messages').appendChild(li);
+        document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
       });
 
-      // Function to send message
+      // Send message with username
       function sendMessage() {
-        var message = document.getElementById('messageInput').value;
-        socket.emit('chat message', message);
-        document.getElementById('messageInput').value = '';
+        var message = document.getElementById('messageInput').value.trim();
+        if (message !== '') {
+          var fullMessage = username + ': ' + message;
+          socket.emit('chat message', fullMessage);
+          document.getElementById('messageInput').value = '';
+        }
       }
     </script>
   </body>
