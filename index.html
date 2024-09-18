@@ -84,6 +84,16 @@
       border: none;
       cursor: pointer;
     " />
+
+    <input id="resetButton" type="button" value="Reset Chat" onclick="resetChat()" style="
+      padding: 10px;
+      margin: 5px 0;
+      width: 18%;
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      cursor: pointer;
+    " />
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -158,6 +168,11 @@
         this.value += '\n'; // Add new line
       }
     });
+
+    // Function to reset chat
+    function resetChat() {
+      document.getElementById('messages').innerHTML = ''; // Clear message history
+    }
   </script>
 </body>
 </html>
