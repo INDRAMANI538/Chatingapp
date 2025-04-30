@@ -1,3 +1,5 @@
+require('dotenv').config();  // Load environment variables from .env file
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -7,11 +9,11 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Initialize Firebase
-const serviceAccount = require('./serviceAccountKey.json');
+// Initialize Firebase using environment variables
+const serviceAccount = require(process.env.FIREBASE_CONFIG_PATH);  // Use path from .env file
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: 'https://chatapp-4767c-default-rtdb.firebaseio.com',
+  databaseURL: process.env.FIREBASE_DATABASE_URL,  // Use database URL from .env file
 });
 
 const db = admin.database();
