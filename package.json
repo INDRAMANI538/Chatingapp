@@ -8,9 +8,19 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "express": "^4.21.0",
-    "socket.io": "^4.7.5"
-  }
+    "firebase": "^11.6.1",
+    "firebase-admin": "^13.3.0",
+    "socket.io": "^4.8.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/INDRAMANI538/Chatingapp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/INDRAMANI538/Chatingapp/issues"
+  },
+  "homepage": "https://github.com/INDRAMANI538/Chatingapp#readme",
+  "description": ""
 }
