@@ -9,38 +9,38 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Initialize Firebase using environment variables
-const serviceAccount = require(process.env.FIREBASE_CONFIG_PATH);  // Use path from .env file
+// ✅ Initialize Firebase using environment variables
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: process.env.FIREBASE_DATABASE_URL,  // Use database URL from .env file
+  credential: admin.credential.cert({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+  }),
+  databaseURL: process.env.FIREBASE_DATABASE_URL,
 });
 
 const db = admin.database();
 
+// ✅ Serve static files from "public" folder
 app.use(express.static(__dirname + '/public'));
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
 });
 
-// Socket handling
+// ✅ Socket.IO logic
 io.on('connection', (socket) => {
   console.log('A user connected');
 
-  // Handle when a user joins the chat
   socket.on('join chat', () => {
     console.log('User has joined the chat');
-
-    // Send a welcome message to the user (you can modify this message as needed)
-    socket.emit('chat message', { message: `Welcome to the chat! You joined at ${new Date().toLocaleString()}` });
+    socket.emit('chat message', {
+      message: `Welcome to the chat! You joined at ${new Date().toLocaleString()}`
+    });
   });
 
-  // On new chat message
   socket.on('chat message', (msg) => {
     const [username, message] = msg.split(': ');
-
-    // Timestamp when the message is sent
     const timestamp = new Date();
     const isoTime = timestamp.toISOString();
     const readableTime = timestamp.toLocaleString('en-IN', {
@@ -60,19 +60,19 @@ io.on('connection', (socket) => {
       readableTime
     };
 
-    // Save the message to Firebase
+    // Save to Firebase
     db.ref('messages').push(messageObj);
 
-    // Broadcast the new message to all clients
+    // Send to all connected clients
     io.emit('chat message', messageObj);
   });
 
-  // Handle disconnect
   socket.on('disconnect', () => {
     console.log('A user disconnected');
   });
 });
 
+// ✅ Start server
 server.listen(3000, () => {
   console.log('Listening on port 3000');
 });
