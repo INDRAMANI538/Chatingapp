@@ -64,31 +64,36 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chat message', (msg) => {
-    const [username, message] = msg.split(': ');
-    const timestamp = new Date();
-    const isoTime = timestamp.toISOString();
-    const readableTime = timestamp.toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    });
+    // Ensure msg is an object containing username and message
+    if (typeof msg === 'object' && msg.username && msg.message) {
+      const { username, message } = msg;
+      const timestamp = new Date();
+      const isoTime = timestamp.toISOString();
+      const readableTime = timestamp.toLocaleString('en-IN', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true
+      });
 
-    const messageObj = {
-      username,
-      message,
-      timestamp: isoTime,
-      readableTime
-    };
+      const messageObj = {
+        username,
+        message,
+        timestamp: isoTime,
+        readableTime
+      };
 
-    // Save to Firebase
-    db.ref('messages').push(messageObj);
+      // Save to Firebase
+      db.ref('messages').push(messageObj);
 
-    // Send to all connected clients
-    io.emit('chat message', messageObj);
+      // Send to all connected clients
+      io.emit('chat message', messageObj);
+    } else {
+      console.error('Invalid message format:', msg);  // Only log error if the message format is invalid
+    }
   });
 });
 
