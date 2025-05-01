@@ -63,6 +63,35 @@
       background-color: #ffffff;
       color: #007bff;
     }
+
+    .social-btn {
+      width: 100%;
+      margin-top: 10px;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .google-btn {
+      background-color: #ffffff;
+      color: #333;
+    }
+
+    .github-btn {
+      background-color: #000000;
+      color: #ffffff;
+    }
+
+    .social-btn img {
+      height: 20px;
+    }
   </style>
 </head>
 <body>
@@ -72,11 +101,28 @@
     <input id="password" type="password" placeholder="Password"><br>
     <button onclick="login()">Login</button>
     <button onclick="register()">Register</button>
+
+    <!-- Social login buttons with logos -->
+    <button onclick="googleLogin()" class="social-btn google-btn">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google Logo">
+      Continue with Google
+    </button>
+    <button onclick="githubLogin()" class="social-btn github-btn">
+      <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/github/github-original.svg" alt="GitHub Logo" style="filter: brightness(0) invert(1);">
+      Continue with GitHub
+    </button>
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      createUserWithEmailAndPassword,
+      signInWithPopup,
+      GoogleAuthProvider,
+      GithubAuthProvider
+    } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyCwkYRuEoBS9z-_Z2eqrVV0zfCBXcGdwt8",
@@ -87,21 +133,21 @@
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
 
-    window.login = function() {
+    window.login = function () {
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
       signInWithEmailAndPassword(auth, email, password)
         .then((userCredential) => {
           const user = userCredential.user;
           localStorage.setItem('userEmail', user.email);
-          window.location.href = "/index.html"; // redirect to chat
+          window.location.href = "/index.html";
         })
         .catch((error) => {
           alert("Login failed: " + error.message);
         });
     }
 
-    window.register = function() {
+    window.register = function () {
       const email = document.getElementById("email").value;
       const password = document.getElementById("password").value;
       createUserWithEmailAndPassword(auth, email, password)
@@ -110,6 +156,34 @@
         })
         .catch((error) => {
           alert("Registration failed: " + error.message);
+        });
+    }
+
+    // Google Auth
+    window.googleLogin = function () {
+      const provider = new GoogleAuthProvider();
+      signInWithPopup(auth, provider)
+        .then((result) => {
+          const user = result.user;
+          localStorage.setItem('userEmail', user.email);
+          window.location.href = "/index.html";
+        })
+        .catch((error) => {
+          alert("Google login failed: " + error.message);
+        });
+    }
+
+    // GitHub Auth
+    window.githubLogin = function () {
+      const provider = new GithubAuthProvider();
+      signInWithPopup(auth, provider)
+        .then((result) => {
+          const user = result.user;
+          localStorage.setItem('userEmail', user.email);
+          window.location.href = "/index.html";
+        })
+        .catch((error) => {
+          alert("GitHub login failed: " + error.message);
         });
     }
   </script>
