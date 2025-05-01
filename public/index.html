@@ -25,81 +25,89 @@
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script>
-    var socket = io();
-    var username = '';
+<script>
+  var username = localStorage.getItem('userEmail');
+  var socket;
 
-    // Get the user email from localStorage
-    username = localStorage.getItem('userEmail');
-    if (username) {
-      document.getElementById('user-email').textContent = 'Logged in as: ' + username;
-      
-      // Enable message input and send button if the user is logged in
-      document.getElementById('messageInput').disabled = false;
-      document.getElementById('sendMessage').disabled = false;
-      
-      // Notify the server that the user has joined
-      socket.emit('join chat');
-    } else {
-      window.location.href = "login.html"; // Redirect to login if no user is logged in
-    }
-
-    // Listen for incoming chat messages from the server
-    socket.on('chat message', function (msg) {
-      displayMessage(msg);
+  if (username) {
+    // Connect with query parameter
+    socket = io({
+      query: {
+        userName: username
+      }
     });
 
-    function displayMessage(msg) {
-      var li = document.createElement('li');
-      var usernameSpan = document.createElement('span');
-      usernameSpan.textContent = msg.username + ': ';
-      usernameSpan.style.fontWeight = 'bold';
-      usernameSpan.style.color = 'cyan';
+    document.getElementById('user-email').textContent = 'Logged in as: ' + username;
 
-      var messageText = document.createTextNode(msg.message + ' ');
-      var timeSpan = document.createElement('span');
-      timeSpan.style.fontSize = '12px';
-      timeSpan.style.color = '#ddd';
+    // Enable message input and send button if the user is logged in
+    document.getElementById('messageInput').disabled = false;
+    document.getElementById('sendMessage').disabled = false;
 
-      const date = new Date(msg.timestamp);
-      const options = {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      };
-      const formattedTime = date.toLocaleString('en-IN', options);
+    // Notify the server that the user has joined
+    socket.emit('join chat');
+  } else {
+    window.location.href = "login.html"; // Redirect to login if no user is logged in
+  }
 
-      timeSpan.textContent = `(${formattedTime})`;
+  // Listen for incoming chat messages from the server
+  socket.on('chat message', function (msg) {
+    displayMessage(msg);
+  });
 
-      li.appendChild(usernameSpan);
-      li.appendChild(messageText);
-      li.appendChild(timeSpan);
+  function displayMessage(msg) {
+    var li = document.createElement('li');
+    var usernameSpan = document.createElement('span');
+    usernameSpan.textContent = msg.username + ': ';
+    usernameSpan.style.fontWeight = 'bold';
+    usernameSpan.style.color = 'cyan';
 
-      document.getElementById('messages').appendChild(li);
-      document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+    var messageText = document.createTextNode(msg.message + ' ');
+    var timeSpan = document.createElement('span');
+    timeSpan.style.fontSize = '12px';
+    timeSpan.style.color = '#ddd';
+
+    const date = new Date(msg.timestamp);
+    const options = {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    };
+    const formattedTime = date.toLocaleString('en-IN', options);
+
+    timeSpan.textContent = `(${formattedTime})`;
+
+    li.appendChild(usernameSpan);
+    li.appendChild(messageText);
+    li.appendChild(timeSpan);
+
+    document.getElementById('messages').appendChild(li);
+    document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+  }
+
+  function sendMessage() {
+    var message = document.getElementById('messageInput').value.trim();
+    if (message !== '') {
+      socket.emit('chat message', {
+        username: username,
+        message: message,
+        timestamp: new Date().toISOString()
+      });
+      document.getElementById('messageInput').value = '';
     }
+  }
 
-    function sendMessage() {
-      var message = document.getElementById('messageInput').value.trim();
-      if (message !== '') {
-        var fullMessage = username + ': ' + message;
-        socket.emit('chat message', fullMessage);
-        document.getElementById('messageInput').value = '';
-      }
-    }
+  function resetChat() {
+    document.getElementById('messages').innerHTML = '';
+  }
 
-    function resetChat() {
-      document.getElementById('messages').innerHTML = '';
-    }
+  function logout() {
+    localStorage.removeItem('userEmail');
+    window.location.href = 'login.html';
+  }
+</script>
 
-    // Logout functionality
-    function logout() {
-      localStorage.removeItem('userEmail');
-      window.location.href = 'login.html'; // Redirect to login page
-    }
-  </script>
 </body>
 </html>

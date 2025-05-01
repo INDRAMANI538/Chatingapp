@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// ✅ Initialize Firebase using environment variables
+// ✅ Initialize Firebase
 admin.initializeApp({
   credential: admin.credential.cert({
     projectId: process.env.FIREBASE_PROJECT_ID,
@@ -22,42 +22,44 @@ admin.initializeApp({
 
 const db = admin.database();
 
-// ✅ Serve static files from "public" folder
-app.use(express.static(path.join(__dirname, 'public'))); // Serve static files from public folder
-app.use(express.json());  // Middleware to parse JSON
+// ✅ Serve static files
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 
 // ✅ Routes
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html')); // Serve login page
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
 app.get('/chat', (req, res) => {
-  // Authenticate the user before serving the chat page
   const idToken = req.headers.authorization?.split('Bearer ')[1];
 
-  if (!idToken) {
-    return res.redirect('/'); // If no token, redirect to login
-  }
+  if (!idToken) return res.redirect('/');
 
   admin.auth().verifyIdToken(idToken)
-    .then((decodedToken) => {
-      // If token is valid, serve the chat page
+    .then(() => {
       res.sendFile(path.join(__dirname, 'public', 'index.html'));
     })
     .catch((error) => {
       console.error('Error verifying ID token:', error);
-      res.redirect('/'); // If token is invalid, redirect to login
+      res.redirect('/');
     });
 });
 
-// ✅ Socket.IO logic
+// ✅ Socket.IO logic with userName support
 io.on('connection', (socket) => {
-  console.log('A user connected');
+  const userName = socket.handshake.query.userName || 'Unknown User';
+
+  console.log(`${userName} connected`);
+
+  socket.on('disconnect', () => {
+    console.log(`${userName} disconnected`);
+  });
 
   socket.on('join chat', () => {
-    console.log('User has joined the chat');
+    console.log(`${userName} joined the chat`);
     socket.emit('chat message', {
-      message: `Welcome to the chat! You joined at ${new Date().toLocaleString()}`
+      message: `Welcome ${userName}! You joined at ${new Date().toLocaleString()}`
     });
   });
 
@@ -87,10 +89,6 @@ io.on('connection', (socket) => {
 
     // Send to all connected clients
     io.emit('chat message', messageObj);
-  });
-
-  socket.on('disconnect', () => {
-    console.log('A user disconnected');
   });
 });
 
