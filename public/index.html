@@ -10,8 +10,7 @@
     <h1 id="chatapp" style="font-family: Arial, sans-serif; font-size: 36px; font-weight: bold; color: #007bff; text-align: center; padding: 20px 0; background: linear-gradient(90deg, #007bff, #00d4ff); -webkit-background-clip: text; color: transparent; text-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2); letter-spacing: 2px; text-transform: uppercase;">Indramani's Chatting App</h1>
 
     <div id="user-info">
-      <input id="usernameInput" type="text" placeholder="Enter your name" autocomplete="off" style="padding: 10px; margin: 5px 0; width: 60%; border-radius: 5px; border: none; outline: none; font-size: 14px;">
-      <input id="submitName" type="button" value="Join Chat" onclick="submitName()" style="padding: 10px; margin: 5px 0; width: 38%; background-color: #28a745; color: white; border: none; cursor: pointer;">
+      <span id="user-email"></span> <!-- Display the logged-in user's email here -->
     </div>
 
     <ul id="messages" style="list-style-type: none; padding: 0; height: 300px; overflow-y: scroll; margin-bottom: 20px; border: 1px solid #555; padding: 10px; background: linear-gradient(90deg, #0d0e11, #00d4ff); color: #f4f4f4;"></ul>
@@ -20,6 +19,9 @@
 
     <input id="sendMessage" type="button" value="Send" onclick="sendMessage()" disabled style="padding: 10px; margin: 5px 0; width: 18%; background-color: #007bff; color: white; border: none; cursor: pointer;">
     <input id="resetButton" type="button" value="Reset Chat" onclick="resetChat()" style="padding: 10px; margin: 5px 0; width: 18%; background-color: #dc3545; color: white; border: none; cursor: pointer;">
+    
+    <!-- Logout Button -->
+    <input id="logoutButton" type="button" value="Logout" onclick="logout()" style="padding: 10px; margin: 5px 0; width: 18%; background-color: #dc3545; color: white; border: none; cursor: pointer;">
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -27,19 +29,22 @@
     var socket = io();
     var username = '';
 
-    function submitName() {
-      username = document.getElementById('usernameInput').value.trim();
-      if (username !== '') {
-        document.getElementById('messageInput').disabled = false;
-        document.getElementById('sendMessage').disabled = false;
-        document.getElementById('usernameInput').disabled = true;
-        document.getElementById('submitName').disabled = true;
-
-        // Notify server that the user has joined
-        socket.emit('join chat');
-      }
+    // Get the user email from localStorage
+    username = localStorage.getItem('userEmail');
+    if (username) {
+      document.getElementById('user-email').textContent = 'Logged in as: ' + username;
+      
+      // Enable message input and send button if the user is logged in
+      document.getElementById('messageInput').disabled = false;
+      document.getElementById('sendMessage').disabled = false;
+      
+      // Notify the server that the user has joined
+      socket.emit('join chat');
+    } else {
+      window.location.href = "login.html"; // Redirect to login if no user is logged in
     }
 
+    // Listen for incoming chat messages from the server
     socket.on('chat message', function (msg) {
       displayMessage(msg);
     });
@@ -89,7 +94,12 @@
     function resetChat() {
       document.getElementById('messages').innerHTML = '';
     }
+
+    // Logout functionality
+    function logout() {
+      localStorage.removeItem('userEmail');
+      window.location.href = 'login.html'; // Redirect to login page
+    }
   </script>
-  
 </body>
 </html>

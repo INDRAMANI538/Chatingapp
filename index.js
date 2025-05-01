@@ -4,6 +4,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const admin = require('firebase-admin');
+const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
@@ -22,10 +23,31 @@ admin.initializeApp({
 const db = admin.database();
 
 // ✅ Serve static files from "public" folder
-app.use(express.static(__dirname + '/public'));
+app.use(express.static(path.join(__dirname, 'public'))); // Serve static files from public folder
+app.use(express.json());  // Middleware to parse JSON
 
+// ✅ Routes
 app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/index.html');
+  res.sendFile(path.join(__dirname, 'public', 'login.html')); // Serve login page
+});
+
+app.get('/chat', (req, res) => {
+  // Authenticate the user before serving the chat page
+  const idToken = req.headers.authorization?.split('Bearer ')[1];
+
+  if (!idToken) {
+    return res.redirect('/'); // If no token, redirect to login
+  }
+
+  admin.auth().verifyIdToken(idToken)
+    .then((decodedToken) => {
+      // If token is valid, serve the chat page
+      res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    })
+    .catch((error) => {
+      console.error('Error verifying ID token:', error);
+      res.redirect('/'); // If token is invalid, redirect to login
+    });
 });
 
 // ✅ Socket.IO logic
