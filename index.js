@@ -1,4 +1,4 @@
-require('dotenv').config();  // Load environment variables from .env file
+require('dotenv').config();
 
 const express = require('express');
 const http = require('http');
@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// ✅ Initialize Firebase
+// Initialize Firebase
 admin.initializeApp({
   credential: admin.credential.cert({
     projectId: process.env.FIREBASE_PROJECT_ID,
@@ -22,11 +22,11 @@ admin.initializeApp({
 
 const db = admin.database();
 
-// ✅ Serve static files
+// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// ✅ Routes
+// Routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
@@ -37,18 +37,18 @@ app.get('/chat', (req, res) => {
   if (!idToken) return res.redirect('/');
 
   admin.auth().verifyIdToken(idToken)
-    .then(() => {
-      res.sendFile(path.join(__dirname, 'public', 'index.html'));
-    })
+    .then(() => res.sendFile(path.join(__dirname, 'public', 'index.html')))
     .catch((error) => {
       console.error('Error verifying ID token:', error);
       res.redirect('/');
     });
 });
 
-// ✅ Socket.IO logic with userName support
+// Socket.IO
 io.on('connection', (socket) => {
-  const userName = socket.handshake.query.userName || 'Unknown User';
+  const rawUserName = socket.handshake.query.userName || 'Unknown User';
+  const userName = rawUserName.split('@')[0]; // friendly name
+  socket.userName = userName;
 
   console.log(`${userName} connected`);
 
@@ -56,20 +56,28 @@ io.on('connection', (socket) => {
     console.log(`${userName} disconnected`);
   });
 
+  // Join global chat
   socket.on('join chat', () => {
     console.log(`${userName} joined the chat`);
+    socket.join('global');
+
     socket.emit('chat message', {
-      message: `Welcome ${userName}! You joined at ${new Date().toLocaleString()}`
+      username: userName,
+      message: `Welcome ${userName}! You joined at ${new Date().toLocaleString()}`,
+      timestamp: new Date().toISOString()
     });
   });
 
+  // Handle messages
   socket.on('chat message', (msg) => {
-    // Ensure msg is an object containing username and message
-    if (typeof msg === 'object' && msg.username && msg.message) {
-      const { username, message } = msg;
-      const timestamp = new Date();
-      const isoTime = timestamp.toISOString();
-      const readableTime = timestamp.toLocaleString('en-IN', {
+    if (typeof msg !== 'object' || !msg.message) return console.error('Invalid message format:', msg);
+
+    const timestamp = new Date();
+    const messageObj = {
+      username: userName,
+      message: msg.message,
+      timestamp: timestamp.toISOString(),
+      readableTime: timestamp.toLocaleString('en-IN', {
         day: 'numeric',
         month: 'long',
         year: 'numeric',
@@ -77,27 +85,26 @@ io.on('connection', (socket) => {
         minute: '2-digit',
         second: '2-digit',
         hour12: true
-      });
+      })
+    };
 
-      const messageObj = {
-        username,
-        message,
-        timestamp: isoTime,
-        readableTime
-      };
+    // Save to Firebase
+    db.ref('messages').push(messageObj);
 
-      // Save to Firebase
-      db.ref('messages').push(messageObj);
-
-      // Send to all connected clients
-      io.emit('chat message', messageObj);
+    // Private message if target user specified
+    if (msg.privateTo) {
+      const targetSocket = [...io.sockets.sockets.values()].find(s => s.userName === msg.privateTo);
+      if (targetSocket) {
+        [socket, targetSocket].forEach(s => s.emit('chat message', { ...messageObj, private: true }));
+      }
     } else {
-      console.error('Invalid message format:', msg);  // Only log error if the message format is invalid
+      // Broadcast global
+      io.to('global').emit('chat message', messageObj);
     }
   });
 });
 
-// ✅ Start server
+// Start server
 server.listen(3000, () => {
   console.log('Listening on port 3000');
 });
