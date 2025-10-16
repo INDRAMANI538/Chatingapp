@@ -104,7 +104,8 @@ io.on('connection', (socket) => {
   });
 });
 
-// Start server
-server.listen(3000, () => {
-  console.log('Listening on port 3000');
+// ✅ Use dynamic port for OneRender
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
