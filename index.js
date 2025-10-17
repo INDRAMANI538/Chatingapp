@@ -10,7 +10,6 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Initialize Firebase
 admin.initializeApp({
   credential: admin.credential.cert({
     projectId: process.env.FIREBASE_PROJECT_ID,
@@ -21,91 +20,100 @@ admin.initializeApp({
 });
 
 const db = admin.database();
-
-// Serve static files
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 
-// Routes
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-app.get('/chat', (req, res) => {
-  const idToken = req.headers.authorization?.split('Bearer ')[1];
+const userMap = new Map(); // socket.id -> { name, id }
 
-  if (!idToken) return res.redirect('/');
-
-  admin.auth().verifyIdToken(idToken)
-    .then(() => res.sendFile(path.join(__dirname, 'public', 'index.html')))
-    .catch((error) => {
-      console.error('Error verifying ID token:', error);
-      res.redirect('/');
-    });
-});
-
-// Socket.IO
 io.on('connection', (socket) => {
   const rawUserName = socket.handshake.query.userName || 'Unknown User';
-  const userName = rawUserName.split('@')[0]; // friendly name
+  const userName = rawUserName.split('@')[0];
+  let uniqueID = Math.floor(1000 + Math.random() * 9000);
+  while ([...userMap.values()].some(u => u.id === uniqueID)) {
+    uniqueID = Math.floor(1000 + Math.random() * 9000);
+  }
+
+  userMap.set(socket.id, { name: userName, id: uniqueID });
   socket.userName = userName;
+  socket.userID = uniqueID;
 
-  console.log(`${userName} connected`);
+  console.log(`${userName} connected with ID ${uniqueID}`);
+  socket.emit('your id', { id: uniqueID });
 
-  socket.on('disconnect', () => {
-    console.log(`${userName} disconnected`);
+  socket.join('global');
+  socket.emit('chat message', {
+    username: 'System',
+    message: `Welcome ${userName}! Your ID is ${uniqueID}`,
+    timestamp: new Date().toISOString()
   });
 
-  // Join global chat
-  socket.on('join chat', () => {
-    console.log(`${userName} joined the chat`);
-    socket.join('global');
-
-    socket.emit('chat message', {
-      username: userName,
-      message: `Welcome ${userName}! You joined at ${new Date().toLocaleString()}`,
-      timestamp: new Date().toISOString()
-    });
-  });
-
-  // Handle messages
   socket.on('chat message', (msg) => {
-    if (typeof msg !== 'object' || !msg.message) return console.error('Invalid message format:', msg);
-
-    const timestamp = new Date();
+    if (!msg || !msg.message) return;
     const messageObj = {
       username: userName,
       message: msg.message,
-      timestamp: timestamp.toISOString(),
-      readableTime: timestamp.toLocaleString('en-IN', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
-      })
+      timestamp: new Date().toISOString(),
     };
 
-    // Save to Firebase
-    db.ref('messages').push(messageObj);
-
-    // Private message if target user specified
     if (msg.privateTo) {
-      const targetSocket = [...io.sockets.sockets.values()].find(s => s.userName === msg.privateTo);
+      const targetSocket = [...io.sockets.sockets.values()].find(s => s.userID == msg.privateTo);
       if (targetSocket) {
-        [socket, targetSocket].forEach(s => s.emit('chat message', { ...messageObj, private: true }));
+        [socket, targetSocket].forEach(s => 
+          s.emit('private message', { ...messageObj, fromID: socket.userID, toID: targetSocket.userID })
+        );
+      } else {
+        socket.emit('chat message', {
+          username: 'System',
+          message: `User with ID ${msg.privateTo} not found or offline.`,
+          timestamp: new Date().toISOString(),
+        });
       }
     } else {
-      // Broadcast global
       io.to('global').emit('chat message', messageObj);
+      db.ref('messages').push(messageObj);
     }
+  });
+
+  // ✅ Private chat request handling
+  socket.on('private request', (data) => {
+    console.log(`User ${socket.userID} requested chat with ${data.toID}`);
+    const targetSocket = [...io.sockets.sockets.values()].find(s => s.userID == data.toID);
+    if (targetSocket) {
+      targetSocket.emit('private request', { fromID: socket.userID });
+    } else {
+      socket.emit('private declined', { toID: data.toID });
+    }
+  });
+
+  socket.on('private accept', (data) => {
+    console.log(`User ${socket.userID} accepted chat with ${data.fromID}`);
+    const targetSocket = [...io.sockets.sockets.values()].find(s => s.userID == data.fromID);
+    if (targetSocket) {
+      [socket, targetSocket].forEach(s =>
+        s.emit('private accepted', { user1: socket.userID, user2: targetSocket.userID })
+      );
+    }
+  });
+
+  socket.on('private decline', (data) => {
+    console.log(`User ${socket.userID} declined chat with ${data.fromID}`);
+    const targetSocket = [...io.sockets.sockets.values()].find(s => s.userID == data.fromID);
+    if (targetSocket) {
+      targetSocket.emit('private declined', { toID: socket.userID });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`${userName} (ID ${uniqueID}) disconnected`);
+    userMap.delete(socket.id);
   });
 });
 
-// Start server (bind to 0.0.0.0 for OneRender)
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
