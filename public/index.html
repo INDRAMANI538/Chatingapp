@@ -28,7 +28,7 @@
       to { opacity: 1; transform: translateY(0); }
     }
 
-    #messages, #private-messages {
+    #messages {
       list-style: none;
       padding: 10px;
       height: 300px;
@@ -159,14 +159,11 @@
       height: 18px;
     }
 
-    #private-chat-container {
-      max-width: 600px;
-      margin: 20px auto 0 auto;
-      background: #ffcc70;
-      padding: 20px;
-      border-radius: 12px;
-      display: none;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+    /* Private chat title above messages */
+    #private-chat-title {
+      color: #ffcc70;
+      font-weight: 600;
+      margin: 5px 0;
     }
   </style>
 </head>
@@ -181,6 +178,7 @@
     </div>
 
     <p>Your ID: <strong id="myID">Loading...</strong></p>
+    <p id="private-chat-title"></p>
     <ul id="messages"></ul>
     <p id="typing-indicator"></p>
 
@@ -193,11 +191,6 @@
     <button id="sendMessage" onclick="sendMessage()" disabled>Send</button>
   </div>
 
-  <div id="private-chat-container">
-    <h3 id="private-chat-title">Private Chat</h3>
-    <ul id="private-messages" class="private-chat"></ul>
-  </div>
-
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const userEmail = localStorage.getItem('userEmail') || ('guest' + Math.floor(Math.random() * 1000));
@@ -206,6 +199,7 @@
     let currentPrivateID = null;
     const messageInput = document.getElementById('messageInput');
     const typingIndicator = document.getElementById('typing-indicator');
+    const privateChatTitle = document.getElementById('private-chat-title');
 
     socket.on('your id', data => {
       myID = data.id;
@@ -214,36 +208,31 @@
       document.getElementById('sendMessage').disabled = false;
     });
 
-    socket.on('chat message', msg => displayMessage(msg, false));
-    socket.on('private message', msg => {
-      const otherID = msg.fromID === myID ? msg.toID : msg.fromID;
-      openPrivateChat(otherID);
-      displayMessage(msg, true);
-    });
-
-    function displayMessage(msg, isPrivate) {
-      const list = isPrivate ? document.getElementById('private-messages') : document.getElementById('messages');
+    function displayMessage(msg, isPrivate=false) {
+      const list = document.getElementById('messages');
       if (!list) return;
-
       const li = document.createElement('li');
       li.className = 'message ' + (msg.username === userEmail.split('@')[0] ? 'self' : 'other');
-      li.innerHTML = `
-        ${msg.username}: ${msg.message}
-        <small>${new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</small>
-      `;
+      li.innerHTML = `${isPrivate ? '[Private] ' : ''}${msg.username}: ${msg.message}<small>${new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</small>`;
       list.appendChild(li);
       list.scrollTop = list.scrollHeight;
     }
 
+    socket.on('chat message', msg => displayMessage(msg, false));
+    socket.on('private message', msg => {
+      const otherID = msg.fromID === myID ? msg.toID : msg.fromID;
+      currentPrivateID = otherID;
+      privateChatTitle.textContent = `Private Chat with ${otherID}`;
+      displayMessage(msg, true);
+    });
+
     function sendMessage() {
       const msg = messageInput.value.trim();
       if (!msg) return;
-      const privateTo = currentPrivateID;
-      socket.emit('chat message', { message: msg, privateTo: privateTo || null });
+      socket.emit('chat message', { message: msg, privateTo: currentPrivateID || null });
       messageInput.value = '';
     }
 
-    // Send message on Enter key (Shift + Enter for new line)
     messageInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -255,7 +244,8 @@
       const targetID = document.getElementById('privateBox').value.trim();
       if (!targetID) return alert('Enter a valid user ID');
       socket.emit('private request', { fromID: myID, toID: targetID });
-      openPrivateChat(targetID);
+      currentPrivateID = targetID;
+      privateChatTitle.textContent = `Private Chat with ${targetID}`;
       alert('Private chat request sent to ID ' + targetID);
     }
 
@@ -263,7 +253,8 @@
       const accept = confirm(`User ${data.fromID} wants to chat privately. Accept?`);
       if (accept) {
         socket.emit('private accept', { fromID: data.fromID });
-        openPrivateChat(data.fromID);
+        currentPrivateID = data.fromID;
+        privateChatTitle.textContent = `Private Chat with ${data.fromID}`;
       } else {
         socket.emit('private decline', { fromID: data.fromID });
       }
@@ -271,21 +262,14 @@
 
     socket.on('private accepted', data => {
       const otherID = data.user1 === myID ? data.user2 : data.user1;
-      openPrivateChat(otherID);
+      currentPrivateID = otherID;
+      privateChatTitle.textContent = `Private Chat with ${otherID}`;
       alert('Private chat started with ID ' + otherID);
     });
-
-    function openPrivateChat(otherID) {
-      currentPrivateID = otherID;
-      document.getElementById('private-chat-title').textContent = `Private Chat with ${otherID}`;
-      document.getElementById('private-chat-container').style.display = 'block';
-      document.getElementById('private-messages').innerHTML = '';
-    }
 
     function resetChat() {
       if (confirm('Are you sure you want to clear chat messages?')) {
         document.getElementById('messages').innerHTML = '';
-        document.getElementById('private-messages').innerHTML = '';
       }
     }
 
@@ -305,7 +289,7 @@
       const name = data.fromName || `User ${data.fromID}`;
       typingIndicator.textContent = `${name} is typing...`;
       clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => (typingIndicator.textContent = ''), 1500);
+      typingTimeout = setTimeout(() => typingIndicator.textContent = '', 1500);
     });
   </script>
 </body>
