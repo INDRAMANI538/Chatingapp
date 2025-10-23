@@ -41,7 +41,7 @@ io.on('connection', (socket) => {
   socket.userName = userName;
   socket.userID = uniqueID;
 
-  console.log(`${userName} connected with ID ${uniqueID}`);
+  console.log(`✅ ${userName} connected with ID ${uniqueID}`);
   socket.emit('your id', { id: uniqueID });
 
   socket.join('global');
@@ -80,7 +80,7 @@ io.on('connection', (socket) => {
 
   // ✅ Private chat request handling
   socket.on('private request', (data) => {
-    console.log(`User ${socket.userID} requested chat with ${data.toID}`);
+    console.log(`💬 User ${socket.userID} requested chat with ${data.toID}`);
     const targetSocket = [...io.sockets.sockets.values()].find(s => s.userID == data.toID);
     if (targetSocket) {
       targetSocket.emit('private request', { fromID: socket.userID });
@@ -90,7 +90,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('private accept', (data) => {
-    console.log(`User ${socket.userID} accepted chat with ${data.fromID}`);
+    console.log(`🤝 User ${socket.userID} accepted chat with ${data.fromID}`);
     const targetSocket = [...io.sockets.sockets.values()].find(s => s.userID == data.fromID);
     if (targetSocket) {
       [socket, targetSocket].forEach(s =>
@@ -100,20 +100,40 @@ io.on('connection', (socket) => {
   });
 
   socket.on('private decline', (data) => {
-    console.log(`User ${socket.userID} declined chat with ${data.fromID}`);
+    console.log(`❌ User ${socket.userID} declined chat with ${data.fromID}`);
     const targetSocket = [...io.sockets.sockets.values()].find(s => s.userID == data.fromID);
     if (targetSocket) {
       targetSocket.emit('private declined', { toID: socket.userID });
     }
   });
 
+  // 🖋 Typing indicator feature (NEW)
+  socket.on('typing', (data) => {
+    if (data.toID) {
+      // Typing in private chat
+      const targetSocket = [...io.sockets.sockets.values()].find(s => s.userID == data.toID);
+      if (targetSocket) {
+        targetSocket.emit('typing', {
+          fromID: socket.userID,
+          fromName: socket.userName
+        });
+      }
+    } else {
+      // Typing in public/global chat
+      socket.broadcast.emit('typing', {
+        fromID: socket.userID,
+        fromName: socket.userName
+      });
+    }
+  });
+
   socket.on('disconnect', () => {
-    console.log(`${userName} (ID ${uniqueID}) disconnected`);
+    console.log(`🔴 ${userName} (ID ${uniqueID}) disconnected`);
     userMap.delete(socket.id);
   });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
